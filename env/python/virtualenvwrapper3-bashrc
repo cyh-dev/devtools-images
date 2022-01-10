@@ -1,0 +1,5 @@
+export WOEKSPACE="/root/workspace"
+export WOEKSPACE_PYTHON="$WOEKSPACE/python"
+export WORKON_HOME="$WOEKSPACE_PYTHON/virtualenvs3"
+export VIRTUALENVWRAPPER_PYTHON="/usr/local/bin/python3"
+source $WOEKSPACE_PYTHON/python3/bin/virtualenvwrapper.sh

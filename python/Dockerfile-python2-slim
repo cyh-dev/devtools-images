@@ -1,0 +1,49 @@
+FROM centos:7
+
+# workspace
+ENV WORKSPACE="/root/workspace"
+RUN mkdir -p $WORKSPACE
+VOLUME ["$WORKSPACE"]
+
+# timezone
+ENV TZ Asia/Shanghai
+RUN ln -fs /usr/share/zoneinfo/${TZ} /etc/localtime && echo ${TZ} > /etc/timezone
+
+# passwd
+RUN cat /dev/urandom | head -n 10 | md5sum | cut -c 1-10 > /root/.passwd && \
+    echo "root:$(cat /root/.passwd)" | chpasswd
+
+# yum
+COPY env/yum /root/.yum
+RUN cp -rf /root/.yum/CentOS7-Base-163.repo /etc/yum.repos.d/CentOS-Base.repo
+RUN yum -y update ca-certificates && \
+    yum -y install epel-release && \
+    yum -y install python-pip && \
+    yum -y install which && \
+    yum -y install openssh-server && \
+    yum clean all && \
+    rm -rf /etc/ld.so.cache && \
+	rm -rf /sbin/sln && \
+	rm -rf /usr/{{lib,share}/locale,share/{man,doc,info,cracklib,i18n},{lib,lib64}/gconv,bin/localedef,sbin/build-locale-archive} && \
+	rm -rf /{root,tmp,var/cache/{ldconfig,yum}}/* 
+
+
+# openssh
+RUN ssh-keygen -t rsa -f /etc/ssh/ssh_host_rsa_key && \
+    ssh-keygen -t ecdsa -f /etc/ssh/ssh_host_ecdsa_key && \
+    ssh-keygen -t ed25519 -f  /etc/ssh/ssh_host_ed25519_key
+RUN sed -i \
+    -e 's~^#PermitRootLogin yes~PermitRootLogin yes~g' \
+    -e 's~^#PubkeyAuthentication yes~PubkeyAuthentication yes~g' \
+    /etc/ssh/sshd_config
+
+# python
+ENV PYTHON_ENV="/root/.python"
+ENV WORKSPACE_PYTHON=$WORKSPACE/python
+ENV PIP_INDEX="-i http://mirrors.aliyun.com/pypi/simple/ --trusted-host mirrors.aliyun.com"
+COPY env/python $PYTHON_ENV
+RUN pip install $PIP_INDEX -U pip==20.3.4 setuptools==44.1.1 wheel==0.36.2 && \
+    pip install $PIP_INDEX  -r $PYTHON_ENV/requirements.txt
+RUN cat $PYTHON_ENV/virtualenvwrapper2-bashrc >> /root/.bashrc
+
+CMD /usr/sbin/sshd; /bin/bash

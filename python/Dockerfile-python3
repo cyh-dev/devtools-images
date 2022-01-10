@@ -1,0 +1,81 @@
+FROM centos:7 AS builder
+
+ENV WORKSPACE_PYTHON="/root/workspace/python"
+
+# compile dev
+RUN yum -y groupinstall "Development tools" && \
+    yum -y install zlib-devel bzip2-devel openssl-devel \
+    ncurses-devel sqlite-devel readline-devel tk-devel  \
+    gdbm-devel db4-devel libpcap-devel xz-devel libffi-devel && \
+    yum -y install wget
+
+ADD resource/python/Python-3.7.5.tar.xz /root
+
+RUN mkdir -p $WORKSPACE_PYTHON/python3 && \
+    cd /root/Python-3.7.5 && \
+    ./configure --prefix=$WORKSPACE_PYTHON/python3 && \
+    make && make install
+
+RUN ln -s $WORKSPACE_PYTHON/python3/bin/python3 /usr/local/bin/python3 && \
+    ln -s $WORKSPACE_PYTHON/python3/bin/pip3 /usr/local/bin/pip3
+ARG PIP_INDEX="-i http://mirrors.cloud.tencent.com/pypi/simple/ --trusted-host mirrors.cloud.tencent.com"
+ENV PIP_INDEX=$PIP_INDEX
+RUN pip3 install $PIP_INDEX -U pip==21.3.1 && \
+    pip3 install $PIP_INDEX virtualenvwrapper==4.8.4
+
+RUN cd $WORKSPACE_PYTHON && tar -zcvf python3.tar.gz --exclude=*.pyc python3
+
+
+
+FROM centos:7
+
+# timezone
+ENV TZ Asia/Shanghai
+RUN ln -fs /usr/share/zoneinfo/${TZ} /etc/localtime && echo ${TZ} > /etc/timezone
+
+# passwd
+RUN cat /dev/urandom | head -n 10 | md5sum | cut -c 1-10 > /root/.passwd && \
+    echo "root:$(cat /root/.passwd)" | chpasswd
+
+# yum
+COPY env/yum /root/.yum
+RUN cp -rf /root/.yum/CentOS7-Base-163.repo /etc/yum.repos.d/CentOS-Base.repo
+RUN yum -y update ca-certificates && \
+    yum -y install epel-release openssh-server which && \
+    yum clean all && \
+    rm -rf /etc/ld.so.cache && \
+	rm -rf /sbin/sln && \
+	rm -rf /usr/{{lib,share}/locale,share/{man,doc,info,cracklib,i18n},{lib,lib64}/gconv,bin/localedef,sbin/build-locale-archive} && \
+	rm -rf /{root,tmp,var/cache/{ldconfig,yum}}/* 
+
+
+# openssh
+RUN ssh-keygen -t rsa -f /etc/ssh/ssh_host_rsa_key && \
+    ssh-keygen -t ecdsa -f /etc/ssh/ssh_host_ecdsa_key && \
+    ssh-keygen -t ed25519 -f  /etc/ssh/ssh_host_ed25519_key
+RUN sed -i \
+    -e 's~^#PermitRootLogin yes~PermitRootLogin yes~g' \
+    -e 's~^#PubkeyAuthentication yes~PubkeyAuthentication yes~g' \
+    /etc/ssh/sshd_config
+
+# workspace
+ENV WORKSPACE="/root/workspace"
+ENV WORKSPACE_PYTHON=$WORKSPACE/python
+ENV PYTHON_ENV="/root/.python"
+RUN mkdir -p $WORKSPACE_PYTHON
+COPY env/python $PYTHON_ENV
+
+# python3
+ENV PIP_INDEX="-i http://mirrors.cloud.tencent.com/pypi/simple/ --trusted-host mirrors.cloud.tencent.com"
+COPY --from=builder $WORKSPACE_PYTHON/python3.tar.gz /tmp/python3.tar.gz
+RUN cd $WORKSPACE_PYTHON && tar -zxvf /tmp/python3.tar.gz
+RUN ln -s $WORKSPACE_PYTHON/python3/bin/python3 /usr/local/bin/python3 && \
+    ln -s $WORKSPACE_PYTHON/python3/bin/pip3 /usr/local/bin/pip3 && \
+    ln -s $WORKSPACE_PYTHON/python3/bin/virtualenv /usr/local/bin/virtualenv && \
+    cat $PYTHON_ENV/virtualenvwrapper3-bashrc >> /root/.bashrc && \
+    chmod +x $PYTHON_ENV/init-python3.sh
+
+VOLUME $WORKSPACE
+EXPOSE 22
+
+CMD /usr/sbin/sshd;$PYTHON_ENV/init-python3.sh;/bin/bash

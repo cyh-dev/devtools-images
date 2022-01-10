@@ -1,0 +1,33 @@
+FROM centos:7
+
+# timezone
+ENV TZ Asia/Shanghai
+RUN ln -fs /usr/share/zoneinfo/${TZ} /etc/localtime && echo ${TZ} > /etc/timezone
+
+# passwd
+RUN cat /dev/urandom | head -n 10 | md5sum | cut -c 1-10 > /root/.passwd && \
+    echo "root:$(cat /root/.passwd)" | chpasswd
+
+# yum
+COPY env/yum /root/.yum
+RUN cp -rf /root/.yum/CentOS7-Base-163.repo /etc/yum.repos.d/CentOS-Base.repo
+RUN yum -y update ca-certificates && \
+    yum -y install epel-release && \
+    yum -y install openssh-server &&  \
+    yum clean all && \
+    rm -rf /etc/ld.so.cache && \
+	rm -rf /sbin/sln && \
+	rm -rf /usr/{{lib,share}/locale,share/{man,doc,info,cracklib,i18n},{lib,lib64}/gconv,bin/localedef,sbin/build-locale-archive} && \
+	rm -rf /{root,tmp,var/cache/{ldconfig,yum}}/* 
+
+
+# openssh
+RUN ssh-keygen -t rsa -f /etc/ssh/ssh_host_rsa_key && \
+    ssh-keygen -t ecdsa -f /etc/ssh/ssh_host_ecdsa_key && \
+    ssh-keygen -t ed25519 -f  /etc/ssh/ssh_host_ed25519_key
+RUN sed -i \
+    -e 's~^#PermitRootLogin yes~PermitRootLogin yes~g' \
+    -e 's~^#PubkeyAuthentication yes~PubkeyAuthentication yes~g' \
+    /etc/ssh/sshd_config
+
+CMD /usr/sbin/sshd; /bin/bash

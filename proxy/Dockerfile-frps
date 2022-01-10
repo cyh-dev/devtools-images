@@ -1,0 +1,21 @@
+FROM alpine:3.12.0
+
+ARG WORKDIR="/data/frps"
+ENV WORKDIR=$WORKDIR
+
+# timezone
+RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories && \
+        apk update && \
+        apk add tzdata ca-certificates && \
+        cp -r -f /usr/share/zoneinfo/Asia/Shanghai /etc/localtime && \
+        rm -rf /var/cache/apk/*
+        
+RUN mkdir -p $WORKDIR && mkdir -p /tmp/frps/env
+ADD resource/frp/frps /tmp/frps
+ADD env/frps /tmp/frps/env
+ADD env/frps/run.sh /usr/local/bin/frps-run.sh
+RUN chmod +x /usr/local/bin/frps-run.sh
+WORKDIR $WORKDIR
+VOLUME $WORKDIR
+
+CMD ["sh", "/usr/local/bin/frps-run.sh"]

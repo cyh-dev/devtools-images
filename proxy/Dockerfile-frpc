@@ -1,0 +1,21 @@
+FROM alpine:3.12.0
+
+ARG WORKDIR="/data/frpc"
+ENV WORKDIR=$WORKDIR
+
+# timezone
+RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories && \
+        apk update && \
+        apk add tzdata ca-certificates && \
+        cp -r -f /usr/share/zoneinfo/Asia/Shanghai /etc/localtime && \
+        rm -rf /var/cache/apk/*
+        
+RUN mkdir -p $WORKDIR && mkdir -p /tmp/frpc/env
+ADD resource/frp/frpc /tmp/frpc
+ADD env/frpc /tmp/frpc/env
+ADD env/frpc/run.sh /usr/local/bin/frpc-run.sh
+RUN chmod +x /usr/local/bin/frpc-run.sh
+WORKDIR $WORKDIR
+VOLUME $WORKDIR
+
+CMD ["sh", "/usr/local/bin/frpc-run.sh"]
