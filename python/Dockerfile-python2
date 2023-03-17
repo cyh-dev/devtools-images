@@ -15,7 +15,7 @@ RUN cat /dev/urandom | head -n 10 | md5sum | cut -c 1-10 > /root/.passwd && \
 
 # yum
 COPY env/yum /root/.yum
-RUN cp -rf /root/.yum/CentOS7-Base-163.repo /etc/yum.repos.d/CentOS-Base.repo
+#RUN cp -rf /root/.yum/CentOS7-Base-163.repo /etc/yum.repos.d/CentOS-Base.repo
 RUN yum -y update ca-certificates && \
     yum -y install epel-release && \
     yum -y install $(cat /root/.yum/yum.txt) && \
@@ -39,11 +39,11 @@ RUN sed -i \
 # python
 ENV PYTHON_ENV="/root/.python"
 ENV WORKSPACE_PYTHON=$WORKSPACE/python
-ARG PIP_INDEX="-i http://mirrors.aliyun.com/pypi/simple/ --trusted-host mirrors.aliyun.com"
+ARG PIP_INDEX="-i http://pypi.garenanow.com --trusted-host pypi.garenanow.com"
 ENV PIP_INDEX=$PIP_INDEX
 COPY env/python $PYTHON_ENV
 RUN pip install $PIP_INDEX -U pip==20.3.4 setuptools==44.1.1 wheel==0.36.2 && \
     pip install $PIP_INDEX  -r $PYTHON_ENV/requirements.txt
 RUN cat $PYTHON_ENV/virtualenvwrapper2-bashrc >> /root/.bashrc
 
-CMD /usr/sbin/sshd; /bin/bash
+CMD /usr/sbin/sshd;ldconfig;/bin/bash
