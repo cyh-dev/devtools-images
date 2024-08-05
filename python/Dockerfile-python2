@@ -16,6 +16,8 @@ RUN cat /dev/urandom | head -n 10 | md5sum | cut -c 1-10 > /root/.passwd && \
 # yum
 COPY env/yum /root/.yum
 #RUN cp -rf /root/.yum/CentOS7-Base-163.repo /etc/yum.repos.d/CentOS-Base.repo
+RUN sed -i.bak 's|#baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g' /etc/yum.repos.d/CentOS-*
+RUN sed -i.bak 's/mirrorlist/#mirrorlist/g' /etc/yum.repos.d/CentOS-*
 RUN yum -y update ca-certificates && \
     yum -y install epel-release && \
     yum -y install $(cat /root/.yum/yum.txt) && \
